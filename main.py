@@ -1,7 +1,10 @@
-import os, logging
-from flask import Flask, request, Response, jsonify
-from flask_cors import CORS, cross_origin
+import os, logging, uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
 from psycopg2 import pool
+from datetime import datetime
 from util import *
 
 DB_HOST = os.environ["DBHOST"]
@@ -11,8 +14,14 @@ DB_PASS = os.environ["DBPASSWORD"]
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s')
 
-app = Flask(__name__)
-cors = CORS(app)
+app = FastAPI(title="MTC Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 db_pool = pool.SimpleConnectionPool(
     minconn=1,  # Minimum number of connections
@@ -24,10 +33,9 @@ db_pool = pool.SimpleConnectionPool(
     port=DB_PORT
 )
 
-@app.route("/", methods=['GET'])
-@cross_origin()
+@app.get("/", status_code=200)
 def main():
-    return Response('{"status":"Running"}', status=200, mimetype='application/json')
+    return '{"status":"Running"}'
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    uvicorn.run(app, port=8000)
