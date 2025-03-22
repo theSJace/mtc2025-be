@@ -62,6 +62,7 @@ class JournalDTO(BaseModel):
     journalEntry: str | None = ""
     sentiment: str | None = ""
     justification: str | None = ""
+    emotion: str | None = ""
     userId: str | None = ""
 
 @app.get("/", status_code=200)
@@ -88,14 +89,14 @@ def createUserData(createUser:UserDTO, response:Response):
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     return success
 
-@app.get("/journal", status_code=200)
-def getJournalData(retrieveJournal:JournalDTO, response:Response):
+@app.get("/journal/{telegram_id}", status_code=200)
+def getJournalByUser(telegram_id:str, response:Response):
     conn = db_pool.getconn()
-    success = getJournalImpl(retrieveJournal, conn)
+    success, journalList = getJournalImpl(telegram_id, conn)
     db_pool.putconn(conn)
     if success == False:
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    return success
+    return journalList
 
 @app.post("/journal", status_code=200)
 def createJournaldata(createJournal:JournalDTO, response:Response):
