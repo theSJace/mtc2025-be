@@ -1,17 +1,10 @@
-import os, logging, uvicorn
-from fastapi import FastAPI, HTTPException, Response, status
+import logging, uvicorn, json
+from fastapi import FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
 from psycopg2 import pool
-from datetime import datetime
-from ollama import chat
+from ollama import Client
 from util import *
-
-# DB_HOST = os.environ["DBHOST"]
-# DB_PORT = os.environ["DBPORT"]
-# DB_USER = os.environ["DBUSER"]
-# DB_PASS = os.environ["DBPASSWORD"]
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s')
 
@@ -23,16 +16,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# db_pool = pool.SimpleConnectionPool(
-#     minconn=1,  # Minimum number of connections
-#     maxconn=10,  # Maximum number of connections
-#     database="mtc",
-#     user=DB_USER,
-#     password=DB_PASS,
-#     host=DB_HOST,
-#     port=DB_PORT
-# )
 
 db_pool = pool.SimpleConnectionPool(
     minconn=1,  # Minimum number of connections
@@ -46,16 +29,15 @@ db_pool = pool.SimpleConnectionPool(
 
 class UserDTO(BaseModel):
     userId: str | None = ""
-    userFname: str | None = ""
-    userLname: str | None = ""
+    userNickName: str | None = ""
     userEmail: str | None = ""
     userDob: str | None = ""
     userType: str | None = ""
     parentId: str | None = ""
-    hobbies: str | None = ""
+    refCode: str | None = ""
     foodLikes: str | None = ""
     foodDislikes: str | None = ""
-    refCode: str | None = ""
+    hobbies: str | None = ""
 
 class JournalDTO(BaseModel):
     journalId: str | None = ""
@@ -63,7 +45,53 @@ class JournalDTO(BaseModel):
     sentiment: str | None = ""
     justification: str | None = ""
     emotion: str | None = ""
+    updatedTs: str | None = ""
     userId: str | None = ""
+
+class HobbyDTO(BaseModel):
+    userId: str | None = ""
+
+def getEmotions(createJournal:JournalDTO):
+    client = Client(
+    host='https://8d56-49-245-100-161.ngrok-free.app',
+    )
+    response = client.chat(model='llama3.2', messages=[
+    {
+        'role': 'user',
+        'content': "you will assess the text given and return the sentiment (negative, positive, neutral) with emotions the user might be feeling as well as justification in a JSON compatible response. Keep the response to only be a JSON format",
+    },
+    {
+        'role': 'user',
+        'content': createJournal.journalEntry,
+    },
+    ])
+    try:
+        jsonRes = json.loads(response['message']['content'])
+        sanitiseSentiment = jsonRes["sentiment"].replace("'", "")
+        sanitiseEmotion = ','.join(jsonRes["emotions"]).replace("'", "")
+        sanitiseJustification = jsonRes["justification"].replace("'", "")
+        createJournal.sentiment = sanitiseSentiment
+        createJournal.emotion = sanitiseEmotion
+        createJournal.justification = sanitiseJustification
+    except:
+        print("Error getting response, trying again")
+        getEmotions(createJournal)
+
+def getActivityRecommendation(hobbyArr):
+    client = Client(
+    host='https://8d56-49-245-100-161.ngrok-free.app',
+    )
+    response = client.chat(model='llama3.2', messages=[
+    {
+        'role': 'system',
+        'content': "you will be given a list of hobbies. Recommend activities for families that will be compatible with all or most of the hobbies if satisfying all is not possible with a short justification for each activity in less than 10 words. No extra note is required",
+    },
+    {
+        'role': 'user',
+        'content': ','.join(hobbyArr),
+    },
+    ])
+    return response['message']['content']
 
 @app.get("/", status_code=200)
 def main():
@@ -101,11 +129,29 @@ def getJournalByUser(telegram_id:str, response:Response):
 @app.post("/journal", status_code=200)
 def createJournaldata(createJournal:JournalDTO, response:Response):
     conn = db_pool.getconn()
+    getEmotions(createJournal)
     success = createJournalImpl(createJournal, conn)
     db_pool.putconn(conn)
     if success == False:
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
     return success
+
+@app.post("/journal/update", status_code=200)
+def updateJournaldata(updateJournal:JournalDTO, response:Response):
+    conn = db_pool.getconn()
+    getEmotions(updateJournal)
+    success = updateJournalImpl(updateJournal, conn)
+    db_pool.putconn(conn)
+    if success == False:
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return success
+
+@app.post("/hobby", status_code=200)
+def getActivities(hobbyDto:HobbyDTO):
+    conn = db_pool.getconn()
+    hobbyList = getHobbyImpl(hobbyDto,conn)
+    activityRecommendation = getActivityRecommendation(hobbyList)
+    return activityRecommendation
 
 if __name__ == '__main__':
     uvicorn.run(app, port=8000)
