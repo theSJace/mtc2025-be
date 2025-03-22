@@ -9,7 +9,7 @@ def getRefCode():
     allowed_characters = string.ascii_letters + string.digits
     confusing_chars = "IlO0o"
     allowed_characters = ''.join(c for c in allowed_characters if c not in confusing_chars)
-    random_string = ''.join(random.choice(allowed_characters) for _ in range(length))
+    random_string = ''.join(random.choice(allowed_characters) for _ in range(8))
     return random_string
 
 def checkUserImpl(telegram_id:str, conn):
