@@ -89,7 +89,7 @@ def createUserData(createUser:UserDTO, response:Response):
     return success
 
 @app.get("/journal", status_code=200)
-def createUserData(retrieveJournal:JournalDTO, response:Response):
+def getJournalData(retrieveJournal:JournalDTO, response:Response):
     conn = db_pool.getconn()
     success = getJournalImpl(retrieveJournal, conn)
     db_pool.putconn(conn)
@@ -98,7 +98,7 @@ def createUserData(retrieveJournal:JournalDTO, response:Response):
     return success
 
 @app.post("/journal", status_code=200)
-def createUserData(createJournal:JournalDTO, response:Response):
+def createJournaldata(createJournal:JournalDTO, response:Response):
     conn = db_pool.getconn()
     success = createJournalImpl(createJournal, conn)
     db_pool.putconn(conn)

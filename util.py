@@ -12,22 +12,36 @@ def getRefCode():
     random_string = ''.join(random.choice(allowed_characters) for _ in range(8))
     return random_string
 
+def mapUserDbToUserDTO(rowObj):
+    userDto = UserDTO()
+    userDto.userId = rowObj[0]
+    userDto.userFname = rowObj[1]
+    userDto.userLname = rowObj[2]
+    userDto.userEmail = rowObj[3]
+    userDto.userDob = rowObj[4]
+    userDto.userType = rowObj[5]
+    userDto.parentId = rowObj[6]
+    userDto.refCode = rowObj[7]
+    userDto.foodLikes = rowObj[8]
+    userDto.foodDislikes = rowObj[9]
+    return userDto
+
 def checkUserImpl(telegram_id:str, conn):
     cursor = conn.cursor()
-    CHECK_CUSTOMER = "SELECT * FROM public.\"user\" WHERE telegram_id='{}'".format(telegram_id)
+    CHECK_CUSTOMER = "SELECT * FROM public.\"user\" WHERE user_id='{}'".format(telegram_id)
     cursor.execute(CHECK_CUSTOMER)
     row_count = cursor.rowcount
     if row_count > 0:
         row = cursor.fetchone()
         cursor.close()
-        print(row[0])
-        return True, row
+        userData = mapUserDbToUserDTO(row)
+        return True, userData
     cursor.close()
     return False, None
 
 def createUserImpl(userDto: UserDTO, conn):
     cursor = conn.cursor()
-    CREATE_CUSTOMER = "INSERT INTO public.\"user\"(user_fname, user_lname, user_email, user_dob, user_type, parent_id, ref_code, telegram_id) VALUES(\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\')".format(
+    CREATE_CUSTOMER = "INSERT INTO public.\"user\"(user_id, user_fname, user_lname, user_email, user_dob, user_type, parent_id, ref_code) VALUES(\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\')".format(
         userDto.userId,
         userDto.userFname,
         userDto.userLname,
@@ -48,7 +62,13 @@ def createUserImpl(userDto: UserDTO, conn):
 
 def createJournalImpl(journalDto: JournalDTO, conn):
     cursor = conn.cursor()
-    CREATE_JOURNAL = "INSERT INTO public.\"journal\"(journal_entry, sentiment, justification, created_ts, updated_ts, user_id) VALUES(\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\')".format(journalDto.journalEntry, journalDto.sentiment, journalDto.justification, getCurrentDt(), getCurrentDt(), journalDto.userId)
+    CREATE_JOURNAL = "INSERT INTO public.\"journal\"(journal_entry, sentiment, justification, created_ts, updated_ts, user_id) VALUES(\'{}\',\'{}\',\'{}\',\'{}\',\'{}\',\'{}\')".format(
+        journalDto.journalEntry, 
+        journalDto.sentiment, 
+        journalDto.justification, 
+        getCurrentDt(), 
+        getCurrentDt(), 
+        journalDto.userId)
     cursor.execute(CREATE_JOURNAL)
     rowAffected = cursor.rowcount
     conn.commit()
